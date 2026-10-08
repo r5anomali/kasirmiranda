@@ -93,3 +93,60 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"access_token": signedToken, "token_type": "Bearer", "expires_in": 86400})
 }
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	header := c.GetHeader("Authorization")
+	if !strings.HasPrefix(header, "Bearer ") {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing or invalid authorization header"})
+		return
+	}
+
+	tokenString := strings.TrimPrefix(header, "Bearer ")
+	secret := os.Getenv("JWT_SECRET")
+	if len(secret) < 32 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "authentication is not configured"})
+		return
+	}
+
+	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return []byte(secret), nil
+	})
+	if err != nil || !token.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
+		return
+	}
+
+	expValue, ok := claims["exp"]
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token expiration"})
+		return
+	}
+
+	var expiresAt time.Time
+	switch value := expValue.(type) {
+	case float64:
+		expiresAt = time.Unix(int64(value), 0)
+	case int64:
+		expiresAt = time.Unix(value, 0)
+	default:
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token expiration"})
+		return
+	}
+
+	signature := hashToken(tokenString)
+	if err := h.DB.Create(&models.TokenBlacklist{Signature: signature, ExpiresAt: expiresAt}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not logout"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "logged out successfully"})
+}

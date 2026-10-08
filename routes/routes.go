@@ -15,14 +15,15 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		auth := r.Group("/auth")
 		{
 			auth.POST("/login", authHandler.Login)
-			auth.GET("/me", handlers.AuthMiddleware(), authHandler.Me)
+			auth.GET("/me", handlers.AuthMiddleware(db), authHandler.Me)
+			auth.POST("/logout", handlers.AuthMiddleware(db), authHandler.Logout)
 		}
 
 		productHandler := &handlers.ProductHandler{DB: db}
-		r.GET("/products", handlers.AuthMiddleware(), productHandler.List)
+		r.GET("/products", handlers.AuthMiddleware(db), productHandler.List)
 
 		transactionHandler := &handlers.TransactionHandler{DB: db}
-		authMiddleware := handlers.AuthMiddleware()
+		authMiddleware := handlers.AuthMiddleware(db)
 		r.GET("/income", authMiddleware, transactionHandler.Income)
 		r.GET("/income/export", authMiddleware, transactionHandler.ExportIncome)
 		r.GET("/outcome", authMiddleware, transactionHandler.Outcome)

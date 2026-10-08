@@ -5,11 +5,14 @@ import (
 	"os"
 	"strings"
 
+	"kasirmiranda/models"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
 )
 
-func AuthMiddleware() gin.HandlerFunc {
+func AuthMiddleware(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
@@ -35,6 +38,11 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		if err := checkTokenNotRevoked(db, tokenString); err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token has been revoked"})
+			return
+		}
+
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
@@ -50,4 +58,22 @@ func AuthMiddleware() gin.HandlerFunc {
 		c.Set("userID", userID)
 		c.Next()
 	}
+}
+
+func checkTokenNotRevoked(db *gorm.DB, tokenString string) error {
+	if db == nil {
+		return nil
+	}
+
+	var count int64
+	if err := db.Model(&models.TokenBlacklist{}).
+		Where("signature = ?", hashToken(tokenString)).
+		Count(&count).Error; err != nil {
+		return err
+	}
+
+	if count > 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
