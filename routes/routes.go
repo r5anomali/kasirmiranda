@@ -24,6 +24,8 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		transactionHandler := &handlers.TransactionHandler{DB: db}
 		authMiddleware := handlers.AuthMiddleware()
 		r.GET("/income", authMiddleware, transactionHandler.Income)
+		r.GET("/income/export", authMiddleware, transactionHandler.ExportIncome)
 		r.GET("/outcome", authMiddleware, transactionHandler.Outcome)
+		r.GET("/outcome/export", authMiddleware, transactionHandler.ExportOutcome)
 	}
 }
