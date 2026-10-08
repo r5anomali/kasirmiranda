@@ -20,5 +20,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 
 		productHandler := &handlers.ProductHandler{DB: db}
 		r.GET("/products", handlers.AuthMiddleware(), productHandler.List)
+
+		//Kenapa tidak dibaca
 	}
 }
