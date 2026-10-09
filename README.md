@@ -188,13 +188,16 @@ Parameter:
 
 ### Penjualan kasir
 
-`POST /sales` menerima daftar item berdasarkan ID produk. Setiap produk harus aktif dan memiliki stok cukup. Semua perubahan stok dan baris income disimpan dalam satu transaksi database; jika salah satu item gagal, seluruh penjualan dibatalkan.
+`POST /sales` menerima daftar item berdasarkan ID produk. Stok dan transaksi diproses secara atomik; jika salah satu item gagal, seluruh penjualan dibatalkan.
+
+Penjualan tunai:
 
 ```bash
 curl --location 'http://localhost:8080/sales' \
   --header 'Content-Type: application/json' \
-  --header 'Authorization: Bearer <access_token>' \
+  --header 'Authorization: ******' \
   --data '{
+    "paymentType": "cash",
     "items": [
       {"productId": 14, "quantity": 1},
       {"productId": 15, "quantity": 2}
@@ -202,7 +205,47 @@ curl --location 'http://localhost:8080/sales' \
   }'
 ```
 
-Harga penjualan diambil dari `sellingPrice` produk saat transaksi dibuat. Baris income dicatat per item dengan invoice yang sama.
+Penjualan hutang:
+
+```bash
+curl --location 'http://localhost:8080/sales' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: ******' \
+  --data '{
+    "paymentType": "debt",
+    "title": "Andi - Sampoerna Mild",
+    "note": "Bayar akhir bulan",
+    "items": [{"productId": 16, "quantity": 2}]
+  }'
+```
+
+- `cash` atau kosong: stok berkurang dan transaksi langsung menjadi `income` dengan `status=paid`.
+- `debt`: stok berkurang, tetapi transaksi menjadi `outcome` dengan `subType=debt` dan `status=pending`; belum dihitung sebagai income.
+- Harga memakai `sellingPrice` saat transaksi dibuat.
+
+### Pinjaman uang
+
+`POST /loans` mencatat pinjaman uang tanpa mengurangi stok. Transaksi dibuat sebagai `outcome`, `subType=loan`, dan `status=pending`.
+
+```bash
+curl --location 'http://localhost:8080/loans' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: ******' \
+  --data '{
+    "title": "Pinjaman - Andi",
+    "amount": 100000,
+    "note": "Pinjaman untuk kebutuhan mendesak"
+  }'
+```
+
+### Pelunasan hutang/pinjaman
+
+`POST /outcome/:id/pay` mengubah outcome `pending` menjadi `paid`, lalu membuat transaksi `income` baru dengan nilai yang sama. Pembayaran kedua ditolak.
+
+```bash
+curl --location --request POST 'http://localhost:8080/outcome/21/pay' \
+  --header 'Authorization: ******'
+```
 
 ### Income dan outcome
 
@@ -242,7 +285,7 @@ Nominal dalam PDF ditampilkan dalam format Rupiah, misalnya `Rp.22.000`.
 
 - `users`: identitas login, bcrypt password hash, role.
 - `products`: SKU/barcode, identitas produk, kategori/satuan, harga, stok, status.
-- `transactions`: income/outcome. Penjualan menghasilkan baris `type=income`; outcome membedakan `sub_type=debt` atau `sub_type=loan`.
+- `transactions`: income/outcome. Penjualan tunai menghasilkan `type=income` dengan `status=paid`; penjualan hutang menghasilkan `type=outcome` dengan `sub_type=debt` dan `status=pending`; pinjaman uang menghasilkan `type=outcome` dengan `sub_type=loan` dan `status=pending`. Pelunasan mengubah outcome menjadi `paid` dan membuat baris `income` baru.
 - `token_blacklists`: hash signature token yang telah logout dan waktu kedaluwarsanya.
 
 ## Menjalankan pemeriksaan
