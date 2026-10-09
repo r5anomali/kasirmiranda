@@ -25,6 +25,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 
 		transactionHandler := &handlers.TransactionHandler{DB: db}
 		authMiddleware := handlers.AuthMiddleware(db)
+		r.POST("/sales", authMiddleware, transactionHandler.CreateSale)
 		r.GET("/income", authMiddleware, transactionHandler.Income)
 		r.GET("/income/export", authMiddleware, transactionHandler.ExportIncome)
 		r.GET("/outcome", authMiddleware, transactionHandler.Outcome)

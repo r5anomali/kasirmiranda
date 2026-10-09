@@ -80,7 +80,7 @@ func (h *TransactionHandler) exportTransactionsPDF(c *gin.Context, transactionTy
 		}
 		values := []string{
 			fmt.Sprint(row.ID), row.InvoiceNumber, title, subType,
-			fmt.Sprint(row.Quantity), fmt.Sprintf("%.2f", row.Total),
+			fmt.Sprint(row.Quantity), formatIDR(row.Total),
 		}
 		for i, value := range values {
 			pdf.CellFormat(widths[i], 8, value, "1", 0, "L", false, 0, "")
@@ -90,7 +90,7 @@ func (h *TransactionHandler) exportTransactionsPDF(c *gin.Context, transactionTy
 
 	pdf.Ln(5)
 	pdf.SetFont("Arial", "B", 11)
-	pdf.Cell(0, 8, fmt.Sprintf("Total: %.2f (%d transactions)", total, len(rows)))
+	pdf.Cell(0, 8, fmt.Sprintf("Total: %s (%d transactions)", formatIDR(total), len(rows)))
 
 	var buf bytes.Buffer
 	if err := pdf.Output(&buf); err != nil {
@@ -101,4 +101,30 @@ func (h *TransactionHandler) exportTransactionsPDF(c *gin.Context, transactionTy
 	filename := fmt.Sprintf("%s-%s.pdf", transactionType, period)
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	c.Data(http.StatusOK, "application/pdf", buf.Bytes())
+}
+
+func formatIDR(amount float64) string {
+	value := int64(amount + 0.5)
+	if value == 0 {
+		return "Rp0"
+	}
+
+	negative := value < 0
+	if negative {
+		value = -value
+	}
+
+	digits := fmt.Sprint(value)
+	grouped := ""
+	for i, digit := range digits {
+		if i > 0 && (len(digits)-i)%3 == 0 {
+			grouped += "."
+		}
+		grouped += string(digit)
+	}
+
+	if negative {
+		return "Rp.-" + grouped
+	}
+	return "Rp." + grouped
 }
