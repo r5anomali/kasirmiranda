@@ -30,5 +30,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		r.GET("/income/export", authMiddleware, transactionHandler.ExportIncome)
 		r.GET("/outcome", authMiddleware, transactionHandler.Outcome)
 		r.GET("/outcome/export", authMiddleware, transactionHandler.ExportOutcome)
+		r.POST("/outcome/:id/pay", authMiddleware, transactionHandler.PayDebt)
+		r.POST("/loans", authMiddleware, transactionHandler.CreateLoan)
 	}
 }

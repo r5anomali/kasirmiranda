@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"kasirmiranda/models"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type expenseResponse struct {
@@ -14,6 +18,7 @@ type expenseResponse struct {
 	Title     string  `json:"title"`
 	Amount    float64 `json:"amount"`
 	Type      string  `json:"type"` // "debt" or "loan"
+	Status    string  `json:"status"`
 	Note      string  `json:"note"`
 	DateLabel string  `json:"dateLabel"`
 }
@@ -77,6 +82,7 @@ func (h *TransactionHandler) Outcome(c *gin.Context) {
 			Title:     title,
 			Amount:    row.Total,
 			Type:      subType,
+			Status:    row.Status,
 			Note:      row.Note,
 			DateLabel: dateLabel(row.CreatedAt, time.Now()),
 		})
@@ -87,4 +93,96 @@ func (h *TransactionHandler) Outcome(c *gin.Context) {
 		"transactionCount": transactionCount,
 		"expenses":         expenses,
 	})
+}
+
+var errNotOutcome = errors.New("transaction is not an outcome")
+var errAlreadyPaid = errors.New("transaction already paid")
+
+type loanRequest struct {
+	Title  string  `json:"title" binding:"required"`
+	Amount float64 `json:"amount" binding:"required,gt=0"`
+	Note   string  `json:"note"`
+}
+
+func (h *TransactionHandler) CreateLoan(c *gin.Context) {
+	var input loanRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	invoiceNumber := fmt.Sprintf("LOAN-%s", time.Now().Format("20060102150405"))
+	loan := models.Transaction{
+		Type: "outcome", Status: "pending", SubType: "loan",
+		Title: input.Title, Note: input.Note, InvoiceNumber: invoiceNumber,
+		Quantity: 1, UnitPrice: input.Amount, Total: input.Amount,
+	}
+
+	if err := h.DB.Create(&loan).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create loan"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"id": loan.ID, "title": loan.Title, "amount": loan.Total,
+		"type": "loan", "status": loan.Status, "note": loan.Note,
+		"invoiceNumber": loan.InvoiceNumber,
+	})
+}
+
+func (h *TransactionHandler) PayDebt(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		return
+	}
+
+	var outcome models.Transaction
+	invoiceNumber := fmt.Sprintf("INV-%s", time.Now().Format("20060102150405.000000"))
+	paymentStatus := ""
+
+	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&outcome, id).Error; err != nil {
+			return err
+		}
+		if outcome.Type != "outcome" {
+			return errNotOutcome
+		}
+		if outcome.Status == "paid" {
+			return errAlreadyPaid
+		}
+
+		paymentStatus = outcome.Status
+		outcome.Status = "paid"
+		if err := tx.Save(&outcome).Error; err != nil {
+			return err
+		}
+
+		income := models.Transaction{
+			Type: "income", Status: "paid", SubType: "",
+			Title: outcome.Title, Note: outcome.Note, InvoiceNumber: invoiceNumber,
+			ProductName: outcome.ProductName, Quantity: outcome.Quantity,
+			UnitPrice: outcome.UnitPrice, Total: outcome.Total,
+		}
+		return tx.Create(&income).Error
+	})
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "transaction not found"})
+		return
+	}
+	if errors.Is(err, errNotOutcome) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "transaction is not an outcome"})
+		return
+	}
+	if errors.Is(err, errAlreadyPaid) {
+		c.JSON(http.StatusConflict, gin.H{"error": "transaction already paid"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not process payment"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "payment recorded", "invoiceNumber": invoiceNumber, "status": paymentStatus})
 }

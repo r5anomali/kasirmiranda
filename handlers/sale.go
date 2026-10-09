@@ -18,7 +18,10 @@ type saleItemRequest struct {
 }
 
 type saleRequest struct {
-	Items []saleItemRequest `json:"items" binding:"required,min=1"`
+	Items       []saleItemRequest `json:"items" binding:"required,min=1"`
+	PaymentType string            `json:"paymentType" binding:"omitempty,oneof=cash debt loan"`
+	Title       string            `json:"title"`
+	Note        string            `json:"note"`
 }
 
 func (h *TransactionHandler) CreateSale(c *gin.Context) {
@@ -51,9 +54,20 @@ func (h *TransactionHandler) CreateSale(c *gin.Context) {
 				return err
 			}
 
+			transactionType := "income"
+			status := "paid"
+			subType := ""
+			if input.PaymentType == "debt" || input.PaymentType == "loan" {
+				transactionType = "outcome"
+				status = "pending"
+				subType = input.PaymentType
+			}
+
 			transaction := models.Transaction{
-				Type: "income", InvoiceNumber: invoiceNumber, ProductName: product.Name,
-				Quantity: item.Quantity, UnitPrice: product.SellingPrice, Total: lineTotal,
+				Type: transactionType, Status: status, SubType: subType,
+				Title: input.Title, Note: input.Note, InvoiceNumber: invoiceNumber,
+				ProductName: product.Name, Quantity: item.Quantity,
+				UnitPrice: product.SellingPrice, Total: lineTotal,
 			}
 			if err := tx.Create(&transaction).Error; err != nil {
 				return err
