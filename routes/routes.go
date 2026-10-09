@@ -20,6 +20,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		}
 
 		productHandler := &handlers.ProductHandler{DB: db}
+		r.POST("/products", handlers.AuthMiddleware(db), productHandler.Create)
 		r.GET("/products", handlers.AuthMiddleware(db), productHandler.List)
 
 		transactionHandler := &handlers.TransactionHandler{DB: db}
