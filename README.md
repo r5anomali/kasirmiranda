@@ -140,7 +140,9 @@ Semua endpoint selain `GET /health` dan `POST /auth/login` membutuhkan Bearer to
 | `POST` | `/auth/logout` | Mencabut token aktif melalui blacklist |
 | `POST` | `/products` | Membuat produk |
 | `GET` | `/products` | Daftar produk dengan filter dan pagination |
-| `POST` | `/sales` | Mencatat penjualan dan mengurangi stok |
+| `POST` | `/sales` | Mencatat penjualan tunai atau hutang; stok dikurangi |
+| `POST` | `/loans` | Mencatat pinjaman uang tanpa mengubah stok |
+| `POST` | `/outcome/:id/pay` | Melunasi hutang/pinjaman, tandai outcome paid dan catat income |
 | `GET` | `/income` | Ringkasan serta transaksi income |
 | `GET` | `/income/export` | Unduh laporan income PDF |
 | `GET` | `/outcome` | Ringkasan serta transaksi outcome |
