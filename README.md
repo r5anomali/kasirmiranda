@@ -16,13 +16,17 @@ Backend REST API untuk aplikasi kasir dan manajemen warung, dibuat menggunakan G
 
 ## Teknologi
 
-- Go
-- Gin
-- GORM
-- MySQL
-- JWT (`github.com/golang-jwt/jwt/v5`)
-- bcrypt (`golang.org/x/crypto/bcrypt`)
-- gofpdf (`github.com/jung-kurt/gofpdf/v2`)
+| Teknologi | Versi |
+|---|---|
+| Go | 1.26.2 |
+| Gin | v1.12.0 |
+| GORM | v1.31.2 |
+| GORM MySQL Driver | v1.6.0 |
+| MySQL Driver | v1.10.1 |
+| JWT | v5.3.1 |
+| bcrypt | v0.57.0 |
+| gofpdf | v2.17.3 |
+| godotenv | v1.5.1 |
 
 ## Persyaratan
 
