@@ -14,13 +14,14 @@ import (
 )
 
 type expenseResponse struct {
-	ID        uint    `json:"id"`
-	Title     string  `json:"title"`
-	Amount    float64 `json:"amount"`
-	Type      string  `json:"type"` // "debt" or "loan"
-	Status    string  `json:"status"`
-	Note      string  `json:"note"`
-	DateLabel string  `json:"dateLabel"`
+	ID            uint    `json:"id"`
+	InvoiceNumber string  `json:"invoiceNumber"`
+	Title         string  `json:"title"`
+	Amount        float64 `json:"amount"`
+	Type          string  `json:"type"` // "debt" or "loan"
+	Status        string  `json:"status"`
+	Note          string  `json:"note"`
+	DateLabel     string  `json:"dateLabel"`
 }
 
 func (h *TransactionHandler) Outcome(c *gin.Context) {
@@ -78,13 +79,14 @@ func (h *TransactionHandler) Outcome(c *gin.Context) {
 			subType = "debt"
 		}
 		expenses = append(expenses, expenseResponse{
-			ID:        row.ID,
-			Title:     title,
-			Amount:    row.Total,
-			Type:      subType,
-			Status:    row.Status,
-			Note:      row.Note,
-			DateLabel: dateLabel(row.CreatedAt, time.Now()),
+			ID:            row.ID,
+			InvoiceNumber: row.InvoiceNumber,
+			Title:         title,
+			Amount:        row.Total,
+			Type:          subType,
+			Status:        row.Status,
+			Note:          row.Note,
+			DateLabel:     dateLabel(row.CreatedAt, time.Now()),
 		})
 	}
 
