@@ -79,6 +79,8 @@ func periodRange(period string, now time.Time) (time.Time, time.Time, error) {
 		return day.AddDate(0, 0, -6), day.AddDate(0, 0, 1), nil
 	case "month":
 		return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, location), day.AddDate(0, 0, 1), nil
+	case "year", "this_year":
+		return time.Date(now.Year(), time.January, 1, 0, 0, 0, 0, location), time.Date(now.Year()+1, time.January, 1, 0, 0, 0, 0, location), nil
 	default:
 		return time.Time{}, time.Time{}, &invalidPeriodError{period: period}
 	}
@@ -86,7 +88,9 @@ func periodRange(period string, now time.Time) (time.Time, time.Time, error) {
 
 type invalidPeriodError struct{ period string }
 
-func (e *invalidPeriodError) Error() string { return "period must be today, week, or month" }
+func (e *invalidPeriodError) Error() string {
+	return "period must be today, week, month, year, or this_year"
+}
 
 func dateLabel(createdAt, now time.Time) string {
 	if createdAt.Year() == now.Year() && createdAt.YearDay() == now.YearDay() {
