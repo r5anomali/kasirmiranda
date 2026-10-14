@@ -63,7 +63,8 @@ func (h *TransactionHandler) exportTransactionsPDF(c *gin.Context, transactionTy
 	pdf.Ln(10)
 
 	pdf.SetFont("Arial", "B", 10)
-	widths := []float64{12, 35, 55, 25, 25, 35}
+	// Keep the invoice column wide enough for generated invoice numbers.
+	widths := []float64{12, 48, 48, 22, 18, 42}
 	for i, header := range []string{"ID", "Invoice", "Title/Product", "Type", "Qty", "Amount"} {
 		pdf.CellFormat(widths[i], 8, header, "1", 0, "C", false, 0, "")
 	}

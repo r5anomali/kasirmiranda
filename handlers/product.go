@@ -149,6 +149,27 @@ func toProductResponse(product models.Product) productResponse {
 	}
 }
 
+func (h *ProductHandler) Search(c *gin.Context) {
+	name := strings.TrimSpace(c.Query("name"))
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name query parameter is required"})
+		return
+	}
+
+	var products []models.Product
+	if err := h.DB.Where("name LIKE ? AND active = ?", "%"+name+"%", true).
+		Order("name ASC").Find(&products).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not search products"})
+		return
+	}
+
+	items := make([]productResponse, 0, len(products))
+	for _, product := range products {
+		items = append(items, toProductResponse(product))
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "total": len(items)})
+}
+
 func (h *ProductHandler) List(c *gin.Context) {
 	page, err := queryInt(c, "page", 1, 1, 1_000_000)
 	if err != nil {
