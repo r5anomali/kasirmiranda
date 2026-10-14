@@ -22,6 +22,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		productHandler := &handlers.ProductHandler{DB: db}
 		productAuth := handlers.AuthMiddleware(db)
 		r.POST("/products", productAuth, productHandler.Create)
+		r.PATCH("/products/:id/stock", productAuth, productHandler.AddStock)
 		r.GET("/products/search", productAuth, productHandler.Search)
 		r.GET("/products", productAuth, productHandler.List)
 

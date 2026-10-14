@@ -33,6 +33,10 @@ type productResponse struct {
 	UpdatedAt     string  `json:"updatedAt"`
 }
 
+type stockUpdateRequest struct {
+	Quantity int `json:"quantity" binding:"required,gt=0"`
+}
+
 type productCreateRequest struct {
 	SKU           string  `json:"sku" binding:"required"`
 	Barcode       string  `json:"barcode"`
@@ -47,6 +51,34 @@ type productCreateRequest struct {
 	Active        *bool   `json:"active"`
 	CreatedAt     string  `json:"createdAt"`
 	UpdatedAt     string  `json:"updatedAt"`
+}
+
+func (h *ProductHandler) AddStock(c *gin.Context) {
+	productID := c.Param("id")
+	var input stockUpdateRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "quantity must be a positive integer"})
+		return
+	}
+
+	var product models.Product
+	if err := h.DB.First(&product, productID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "product not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not retrieve product"})
+		return
+	}
+
+	product.Stock += input.Quantity
+	product.InitialStock += input.Quantity
+	if err := h.DB.Save(&product).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not update product stock"})
+		return
+	}
+
+	c.JSON(http.StatusOK, toProductResponse(product))
 }
 
 func (h *ProductHandler) Create(c *gin.Context) {
