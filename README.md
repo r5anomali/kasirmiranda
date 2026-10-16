@@ -140,9 +140,12 @@ Semua endpoint selain `GET /health` dan `POST /auth/login` membutuhkan Bearer to
 | `POST` | `/auth/logout` | Mencabut token aktif melalui blacklist |
 | `POST` | `/products` | Membuat produk |
 | `GET` | `/products` | Daftar produk dengan filter dan pagination |
+| `GET` | `/products/search` | Cari produk berdasarkan nama |
+| `PATCH` | `/products/:id/stock` | Menambah stok produk berdasarkan ID |
 | `POST` | `/sales` | Mencatat penjualan tunai atau hutang; stok dikurangi |
 | `POST` | `/loans` | Mencatat pinjaman uang tanpa mengubah stok |
-| `POST` | `/outcome/:id/pay` | Melunasi hutang/pinjaman, tandai outcome paid dan catat income |
+| `POST` | `/outcome/:id/pay` | Melunasi satu baris hutang/pinjaman berdasarkan ID |
+| `POST` | `/outcome/invoice/:invoiceNumber/pay` | Melunasi seluruh baris pending dalam satu invoice |
 | `GET` | `/income` | Ringkasan serta transaksi income |
 | `GET` | `/income/export` | Unduh laporan income PDF |
 | `GET` | `/outcome` | Ringkasan serta transaksi outcome |
@@ -172,6 +175,25 @@ curl --location 'http://localhost:8080/products' \
 ```
 
 `sku` harus unik. `barcode` bersifat opsional dan harus unik jika diisi. `createdAt` dan `updatedAt` opsional, dengan format `YYYY-MM-DD HH:MM:SS`; jika tidak diberikan, waktu aplikasi digunakan.
+
+Tambah stok produk berdasarkan ID:
+
+```bash
+curl --location --request PATCH 'http://localhost:8080/products/14/stock' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer TOKEN_LOGIN_KAMU' \
+  --data '{"quantity": 50}'
+```
+
+`quantity` harus berupa bilangan bulat positif. Nilai tersebut ditambahkan ke `stock` dan `initialStock`.
+
+Cari produk berdasarkan nama:
+
+```text
+GET /products/search?name=kopi
+```
+
+Pencarian menggunakan partial match pada `name` dan hanya mengembalikan produk aktif (`active=true`).
 
 Daftar produk:
 
@@ -240,12 +262,21 @@ curl --location 'http://localhost:8080/loans' \
 
 ### Pelunasan hutang/pinjaman
 
-`POST /outcome/:id/pay` mengubah outcome `pending` menjadi `paid`, lalu membuat transaksi `income` baru dengan nilai yang sama. Pembayaran kedua ditolak.
+`POST /outcome/:id/pay` melunasi satu baris outcome berdasarkan ID. Endpoint mengubah status dari `pending` menjadi `paid`, lalu membuat transaksi `income` baru dengan nilai yang sama. Pembayaran kedua ditolak.
 
 ```bash
 curl --location --request POST 'http://localhost:8080/outcome/21/pay' \
   --header 'Authorization: ******'
 ```
+
+Untuk invoice yang berisi beberapa produk/baris, gunakan endpoint invoice:
+
+```bash
+curl --location --request POST 'http://localhost:8080/outcome/invoice/DEBT-3101/pay' \
+  --header 'Authorization: ******'
+```
+
+Endpoint invoice memproses hanya baris yang belum `paid`, melepaskan/melewati baris yang sudah dibayar sebelumnya, dan membuat transaksi income untuk setiap baris yang baru dilunasi. Seluruh proses berjalan dalam database transaction dengan row lock, dan pemanggilan ulang setelah seluruh baris lunas akan mengembalikan status `409 Conflict`.
 
 ### Income dan outcome
 
@@ -261,7 +292,7 @@ Outcome:
 GET /outcome?period=today&type=loan
 ```
 
-Periode yang didukung: `today`, `week` (7 hari terakhir termasuk hari ini), dan `month` (bulan kalender berjalan). Untuk outcome, parameter `type` opsional dan menerima `debt` atau `loan`.
+Periode yang didukung: `today`, `week` (7 hari terakhir termasuk hari ini), `month` (bulan kalender berjalan), `year`, dan `this_year` (tahun kalender berjalan). Untuk outcome, parameter `type` opsional dan menerima `debt` atau `loan`.
 
 ### Ekspor PDF
 
@@ -285,7 +316,7 @@ Nominal dalam PDF ditampilkan dalam format Rupiah, misalnya `Rp.22.000`.
 
 - `users`: identitas login, bcrypt password hash, role.
 - `products`: SKU/barcode, identitas produk, kategori/satuan, harga, stok, status.
-- `transactions`: income/outcome. Penjualan tunai menghasilkan `type=income` dengan `status=paid`; penjualan hutang menghasilkan `type=outcome` dengan `sub_type=debt` dan `status=pending`; pinjaman uang menghasilkan `type=outcome` dengan `sub_type=loan` dan `status=pending`. Pelunasan mengubah outcome menjadi `paid` dan membuat baris `income` baru.
+- `transactions`: income/outcome. Penjualan tunai menghasilkan `type=income` dengan `status=paid`; penjualan hutang menghasilkan `type=outcome` dengan `sub_type=debt` dan `status=pending`; pinjaman uang menghasilkan `type=outcome` dengan `sub_type=loan` dan `status=pending`. Pelunasan mengubah outcome menjadi `paid` dan membuat baris `income` baru. Pelunasan dapat dilakukan per baris (`POST /outcome/:id/pay`) atau per invoice (`POST /outcome/invoice/:invoiceNumber/pay`).
 - `token_blacklists`: hash signature token yang telah logout dan waktu kedaluwarsanya.
 
 ## Menjalankan pemeriksaan
