@@ -134,6 +134,84 @@ func (h *TransactionHandler) CreateLoan(c *gin.Context) {
 	})
 }
 
+func (h *TransactionHandler) PayDebtByInvoice(c *gin.Context) {
+	invoiceNumber := c.Param("invoiceNumber")
+	if invoiceNumber == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invoiceNumber is required"})
+		return
+	}
+
+	paymentInvoice := fmt.Sprintf("INV-%s", time.Now().Format("20060102150405.000000"))
+	var outcomes []models.Transaction
+	var total float64
+
+	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("type = ? AND invoice_number = ?", "outcome", invoiceNumber).
+			Find(&outcomes).Error; err != nil {
+			return err
+		}
+		if len(outcomes) == 0 {
+			return gorm.ErrRecordNotFound
+		}
+
+		pendingCount := 0
+		for _, outcome := range outcomes {
+			if outcome.Status != "paid" {
+				pendingCount++
+			}
+		}
+		if pendingCount == 0 {
+			return errAlreadyPaid
+		}
+
+		for i := range outcomes {
+			outcome := &outcomes[i]
+			if outcome.Status == "paid" {
+				continue
+			}
+			outcome.Status = "paid"
+			if err := tx.Save(outcome).Error; err != nil {
+				return err
+			}
+			total += outcome.Total
+
+			income := models.Transaction{
+				Type: "income", Status: "paid", SubType: outcome.SubType,
+				Title: outcome.Title, Note: outcome.Note, InvoiceNumber: paymentInvoice,
+				ProductName: outcome.ProductName, Quantity: outcome.Quantity,
+				UnitPrice: outcome.UnitPrice, Total: outcome.Total,
+			}
+			if err := tx.Create(&income).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "invoice not found"})
+		return
+	}
+	if errors.Is(err, errAlreadyPaid) {
+		c.JSON(http.StatusConflict, gin.H{"error": "one or more transactions in this invoice are already paid"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not process invoice payment"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":              "invoice payment recorded",
+		"invoiceNumber":        invoiceNumber,
+		"paymentInvoiceNumber": paymentInvoice,
+		"transactionCount":     len(outcomes),
+		"total":                total,
+		"status":               "paid",
+	})
+}
+
 func (h *TransactionHandler) PayDebt(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
