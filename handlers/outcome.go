@@ -16,6 +16,7 @@ import (
 type expenseResponse struct {
 	ID            uint    `json:"id"`
 	InvoiceNumber string  `json:"invoiceNumber"`
+	ProductName   string  `json:"productName"`
 	Title         string  `json:"title"`
 	Amount        float64 `json:"amount"`
 	Type          string  `json:"type"` // "debt" or "loan"
@@ -81,6 +82,7 @@ func (h *TransactionHandler) Outcome(c *gin.Context) {
 		expenses = append(expenses, expenseResponse{
 			ID:            row.ID,
 			InvoiceNumber: row.InvoiceNumber,
+			ProductName:   row.ProductName,
 			Title:         title,
 			Amount:        row.Total,
 			Type:          subType,
