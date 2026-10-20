@@ -29,6 +29,7 @@ type productResponse struct {
 	InitialStock  int     `json:"initialStock"`
 	StockMinimum  int     `json:"stockMinimum"`
 	Active        bool    `json:"active"`
+	ImageURL      string  `json:"imageUrl"`
 	CreatedAt     string  `json:"createdAt"`
 	UpdatedAt     string  `json:"updatedAt"`
 }
@@ -175,7 +176,7 @@ func toProductResponse(product models.Product) productResponse {
 		ID: product.ID, SKU: product.SKU, Barcode: barcode, Name: product.Name,
 		Category: product.Category, Unit: product.Unit, PurchasePrice: product.PurchasePrice,
 		SellingPrice: product.SellingPrice, Stock: product.Stock, InitialStock: product.InitialStock,
-		StockMinimum: product.StockMinimum, Active: product.Active,
+		StockMinimum: product.StockMinimum, Active: product.Active, ImageURL: product.ImageURL,
 		CreatedAt: product.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt: product.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}

@@ -15,4 +15,5 @@ type Product struct {
 	InitialStock  int     `json:"initialStock" gorm:"not null;default:0"`
 	StockMinimum  int     `json:"stockMinimum" gorm:"not null;default:0"`
 	Active        bool    `json:"active" gorm:"not null;default:true"`
+	ImageURL      string  `json:"imageUrl" gorm:"type:varchar(512);default:''"`
 }
